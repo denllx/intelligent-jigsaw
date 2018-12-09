@@ -264,7 +264,7 @@
     <property name="geometry">
      <rect>
       <x>640</x>
-      <y>50</y>
+      <y>30</y>
       <width>131</width>
       <height>31</height>
      </rect>
@@ -276,8 +276,8 @@
    <widget class="QPushButton" name="reset">
     <property name="geometry">
      <rect>
-      <x>650</x>
-      <y>100</y>
+      <x>640</x>
+      <y>70</y>
       <width>121</width>
       <height>28</height>
      </rect>
@@ -297,6 +297,19 @@
     </property>
     <property name="text">
      <string>退出</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="answer">
+    <property name="geometry">
+     <rect>
+      <x>660</x>
+      <y>110</y>
+      <width>93</width>
+      <height>28</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>看答案</string>
     </property>
    </widget>
   </widget>

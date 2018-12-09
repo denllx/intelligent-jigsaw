@@ -54,7 +54,9 @@ MainWindow::MainWindow(QWidget *parent) :
     steps=0;
     seconds=0;
     timer=new QTimer(this);
-    connect(timer,SIGNAL(timeout()),this,SLOT(tick()));
+    displayTimer=new QTimer(this);
+    connect(timer,SIGNAL(timeout()),this,SLOT(tick()));//复位计时
+    connect(displayTimer,SIGNAL(timeout()),this,SLOT(displayRet()));//显示解
 
     //设置界面
     ui->seconds->setText(QString::number(seconds));
@@ -122,6 +124,14 @@ void MainWindow::shuffle(){
     }
     //将更新同步到ui
     moveImage();
+    //判断可行性
+    if (able){
+        QMessageBox::about(this,"恭喜","恭喜你，这是一个有解的拼图！");
+    }
+    else{
+        QMessageBox::about(this,"挺住","挺住，这个拼图没有解！");
+        //TODO：更换拼图
+    }
 }
 
 //根据idx矩阵移动格子
@@ -298,4 +308,24 @@ void MainWindow::on_reset_clicked()
 void MainWindow::on_exit_clicked()
 {
     close();
+}
+
+//显示从当前状态到目标的移动路径
+void MainWindow::on_answer_clicked()
+{
+    //每隔1s显示一帧解
+    retId=0;
+    retSteps=ret.size();
+    displayTimer->start(1000);
+}
+
+//显示解路径的下一帧
+void MainWindow::displayRet(){
+    if (retId>=retSteps) {
+        displayTimer->stop();
+        return;
+    }
+   idx=ret[retId];
+   moveImage();
+   retId++;
 }

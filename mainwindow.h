@@ -6,6 +6,8 @@
 #include <QString>
 #include <QLabel>
 
+#include "logic.h"
+
 namespace Ui {
 class MainWindow;
 }
@@ -26,13 +28,18 @@ public:
 
 private slots:
     void on_select_clicked();
+
     void tick();//每过1s执行1次
+
+    void displayRet();
 
     void on_start_clicked();
 
     void on_reset_clicked();
 
     void on_exit_clicked();
+
+    void on_answer_clicked();
 
 private:
     Ui::MainWindow *ui;
@@ -46,7 +53,10 @@ private:
     int steps;//记录步数
     int seconds;//记录用时
     int** idx;//idx[i][j]表示第i行第j列的小图的编号
-    QTimer* timer;
+    vector<int**> ret;//解的路径
+    int retSteps;//解的步数
+    int retId;//当前播放解的第几步
+    QTimer* timer,*displayTimer;//全局时钟；仅用于显示解的时钟
 
 };
 
