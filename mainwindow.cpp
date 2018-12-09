@@ -2,7 +2,9 @@
 #include "ui_mainwindow.h"
 #include <QFileDialog>
 #include <QString>
+#include <QKeyEvent>
 #include <QDebug>
+#include <QMessageBox>
 
 const int GRIDSWIDTH=540;
 const int GRIDSHEIGHT=540;//格子的总宽高
@@ -17,8 +19,8 @@ MainWindow::MainWindow(QWidget *parent) :
     this->setFixedSize(850,700);
 
     //TODO输入m,n
-    m=4;
-    n=3;
+    m=3;
+    n=4;
     gridwidth=GRIDSWIDTH/n;
     gridheight=GRIDSHEIGHT/m;
 
@@ -44,7 +46,20 @@ MainWindow::MainWindow(QWidget *parent) :
         grids[i]->setPixmap((QPixmap(":/images/blank.jpg")));//添加空白背景
         idx[i/n][i%n]=i;
     }
-    idx[m-1][n-1]=-1;//空白空格，以示区别
+    r=m-1;
+    c=n-1;
+    idx[r][c]=-1;//空白空格，以示区别
+
+    //初始化数据
+    steps=0;
+    seconds=0;
+    timer=new QTimer(this);
+    connect(timer,SIGNAL(timeout()),this,SLOT(tick()));
+
+    //设置界面
+    ui->seconds->setText(QString::number(seconds));
+    ui->steps->setText(QString::number(steps));
+    ui->reset->setEnabled(false);
 }
 
 //将大图分为小图，按照顺序放进格子，最后一个为空白
@@ -56,7 +71,9 @@ void MainWindow::splitImage(){
         grids[i]->setPixmap(QPixmap::fromImage(images[i]));
         idx[i/n][i%n]=i;
     }
-    idx[m-1][n-1]=-1;
+    r=m-1;
+    c=n-1;
+    idx[r][c]=-1;
     QPixmap blank(":/images/blank.jpg");
     grids[m*n-1]->setPixmap(blank);
 }
@@ -64,11 +81,6 @@ void MainWindow::splitImage(){
 //打乱图片
 void MainWindow::shuffle(){
     int shuffleTimes=10;//移动图片的次数
-    for (int i=0;i<m;i++){
-        for (int j=0;j<n;j++)
-            qDebug()<<idx[i][j]<<" ";
-        qDebug()<<"\n";
-    }
     for (int i=0;i<shuffleTimes;++i){
         int row=0,col=0;
         for (int j=0;j<m*n;j++){
@@ -107,16 +119,6 @@ void MainWindow::shuffle(){
         default:
             break;
         }
-        for (int i=0;i<m;i++){
-            for (int j=0;j<n;j++)
-                qDebug()<<idx[i][j]<<" ";
-            qDebug()<<"\n";
-        }
-    }
-    for (int i=0;i<m;i++){
-        for (int j=0;j<n;j++)
-            qDebug()<<idx[i][j]<<" ";
-        qDebug()<<"\n";
     }
     //将更新同步到ui
     moveImage();
@@ -126,7 +128,11 @@ void MainWindow::shuffle(){
 void MainWindow::moveImage(){
     for (int i=0;i<m*n;i++){
         int index=idx[i/n][i%n];
-        if (index==-1) index=m*n-1;
+        if (index==-1) {
+            index=m*n-1;
+            r=i/n;
+            c=i%n;//更新空白格所在的位置
+        }
         grids[index]->move(IMAGEX+gridwidth*(i%n),
                            IMAGEY+gridheight*(i/n));
     }
@@ -157,6 +163,92 @@ void MainWindow::on_select_clicked()
     shuffle();//打乱图片
 }
 
+//用户点击WASD分别让空格向上、向左、向下、向右移动
+void MainWindow::keyPressEvent(QKeyEvent *event){
+    if (!timer->isActive()) {
+        return;
+    }
+    bool valid=false;//是否为有效移动
+    switch (event->key()) {
+    case Qt::Key_W:
+        qDebug()<<"W";//上
+        if (r>0){
+            idx[r][c]=idx[r-1][c];
+            idx[r-1][c]=-1;
+            valid=true;
+        }
+        break;
+    case Qt::Key_A://左
+        qDebug()<<"A";
+        if (c>0){
+            idx[r][c]=idx[r][c-1];
+            idx[r][c-1]=-1;
+            valid=true;
+        }
+        break;
+    case Qt::Key_S://下
+        qDebug()<<"S";
+        if (r<m-1){
+            idx[r][c]=idx[r+1][c];
+            idx[r+1][c]=-1;
+            valid=true;
+        }
+        break;
+    case Qt::Key_D://右
+        qDebug()<<"D";
+        if (c<n-1){
+            idx[r][c]=idx[r][c+1];
+            idx[r][c+1]=-1;
+            valid=true;
+        }
+        break;
+    default:
+        break;
+    }
+    if (valid) {
+        moveImage();
+        steps++;
+        ui->steps->setText(QString::number(steps));
+    }
+    judge();
+}
+
+//若成功复原，出现提示框
+void MainWindow::judge(){
+    bool finish=true;
+    for (int i=0;i<m;i++){
+        for (int j=0;j<n;j++){
+            if (i!=m-1||j!=n-1){//非空白格子
+                if (idx[i][j]!=i*n+j){
+                    finish=false;
+                    break;
+                }
+            }
+            else{
+                if (idx[i][j]!=-1){
+                    finish=false;
+                    break;
+                }
+            }
+        }
+        if (!finish) break;
+    }
+    if (finish){
+        grids[m*n-1]->setPixmap(QPixmap::fromImage(images[m*n-1]));//将图复原
+        timer->stop();
+        ui->select->setEnabled(true);
+        ui->start->setEnabled(true);
+        ui->reset->setEnabled(false);
+        QMessageBox::about(this,"成功","恭喜你成功复原！");
+    }
+
+}
+
+void MainWindow::tick(){
+    seconds++;
+    ui->seconds->setText(QString::number(seconds));
+}
+
 MainWindow::~MainWindow()
 {
     delete ui;
@@ -168,3 +260,42 @@ MainWindow::~MainWindow()
     delete grids;
 }
 
+//开始游戏
+void MainWindow::on_start_clicked()
+{
+    if (originalImage==NULL) return;//无法开始
+    if (timer->isActive()) timer->stop();
+    //初始化数据
+    seconds=0;
+    steps=0;
+    //更新设置界面
+    ui->seconds->setText(QString::number(seconds));
+    ui->steps->setText(QString::number(steps));
+    shuffle();
+    timer->start(1000);//开始计时
+    ui->start->setEnabled(false);
+    ui->select->setEnabled(false);
+    ui->reset->setEnabled(true);
+}
+
+//重新来过
+void MainWindow::on_reset_clicked()
+{
+    if (originalImage==NULL) return;
+    seconds=0;
+    steps=0;
+    ui->seconds->setText(QString::number(seconds));
+    ui->steps->setText(QString::number(steps));
+    if (timer->isActive()){
+        timer->stop();
+    }
+    grids[m*n-1]->setPixmap(QPixmap(":/images/blank.jpg"));
+    shuffle();
+    timer->start(1000);
+}
+
+//退出游戏
+void MainWindow::on_exit_clicked()
+{
+    close();
+}
