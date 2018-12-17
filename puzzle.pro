@@ -26,11 +26,19 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
         main.cpp \
         mainwindow.cpp \
-    logic.cpp
+    utils.cpp \
+    node.cpp \
+    open.cpp \
+    close.cpp \
+    solver.cpp
 
 HEADERS += \
         mainwindow.h \
-    logic.h
+    utils.h \
+    node.h \
+    open.h \
+    close.h \
+    solver.h
 
 FORMS += \
         mainwindow.ui

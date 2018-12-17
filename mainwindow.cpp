@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "utils.h"
 #include <QFileDialog>
 #include <QString>
 #include <QKeyEvent>
@@ -19,7 +20,7 @@ MainWindow::MainWindow(QWidget *parent) :
     this->setFixedSize(850,700);
 
     //TODO输入m,n
-    m=3;
+    m=4;
     n=4;
     gridwidth=GRIDSWIDTH/n;
     gridheight=GRIDSHEIGHT/m;
@@ -35,7 +36,8 @@ MainWindow::MainWindow(QWidget *parent) :
 
     //初始化编号
     idx=new int*[m];
-    for (int i=0;i<m;i++) idx[i]=new int[n];
+    initidx=new int*[m];
+    for (int i=0;i<m;i++) idx[i]=new int[n],initidx[i]=new int[n];
 
     //绘制格子，添加分割线
     for (int i=0;i<m*n;i++){
@@ -46,6 +48,13 @@ MainWindow::MainWindow(QWidget *parent) :
         grids[i]->setPixmap((QPixmap(":/images/blank.jpg")));//添加空白背景
         idx[i/n][i%n]=i;
     }
+    qDebug()<<"初始化："<<"\n";
+    for (int i=0;i<m;i++){
+        int* tmp=idx[i];
+        QString s=QString("%1%2%3%4").arg(tmp[0]).arg(tmp[1]).arg(tmp[2]).arg(tmp[3]);
+        qDebug()<<s;
+    }
+    qDebug()<<"\n";
     r=m-1;
     c=n-1;
     idx[r][c]=-1;//空白空格，以示区别
@@ -62,6 +71,9 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->seconds->setText(QString::number(seconds));
     ui->steps->setText(QString::number(steps));
     ui->reset->setEnabled(false);
+
+    //初始化求解器
+    solver=nullptr;
 }
 
 //将大图分为小图，按照顺序放进格子，最后一个为空白
@@ -76,13 +88,20 @@ void MainWindow::splitImage(){
     r=m-1;
     c=n-1;
     idx[r][c]=-1;
+    qDebug()<<"after splitimage："<<"\n";
+    for (int i=0;i<m;i++){
+        int* tmp=idx[i];
+        QString s=QString("%1%2%3%4").arg(tmp[0]).arg(tmp[1]).arg(tmp[2]).arg(tmp[3]);
+        qDebug()<<s;
+    }
+    qDebug()<<"\n";
     QPixmap blank(":/images/blank.jpg");
     grids[m*n-1]->setPixmap(blank);
 }
 
-//打乱图片
+
 void MainWindow::shuffle(){
-    int shuffleTimes=10;//移动图片的次数
+    /*int shuffleTimes=10;//移动图片的次数
     for (int i=0;i<shuffleTimes;++i){
         int row=0,col=0;
         for (int j=0;j<m*n;j++){
@@ -121,16 +140,48 @@ void MainWindow::shuffle(){
         default:
             break;
         }
+    }*/
+
+    int* shuffledArray=new int[m*n];
+    for (int i=0,len=m*n;i<len;i++) shuffledArray[i]=-1;
+    permute(shuffledArray,m*n);//随机填入[0,1,...m*n-2]
+    for (int i=0,len=m*n;i<len;i++){
+        idx[i/n][i%n]=shuffledArray[i];
     }
+    delete shuffledArray;
+
+    qDebug()<<"after shuffle image,before move image："<<"\n";
+    for (int i=0;i<m;i++){
+        int* tmp=idx[i];
+        QString s=QString("%1%2%3%4").arg(tmp[0]).arg(tmp[1]).arg(tmp[2]).arg(tmp[3]);
+        qDebug()<<s;
+    }
+    qDebug()<<"\n";
+
+    //将idx复制到initidx
+    for (int i=0;i<m;i++)
+        for (int j=0;j<n;j++)
+            initidx[i][j]=idx[i][j];
+
     //将更新同步到ui
     moveImage();
+
+    qDebug()<<"after moveimage："<<"\n";
+    for (int i=0;i<m;i++){
+        int* tmp=idx[i];
+        QString s=QString("%1%2%3%4").arg(tmp[0]).arg(tmp[1]).arg(tmp[2]).arg(tmp[3]);
+        qDebug()<<s;
+    }
+    qDebug()<<"\n";
+
     //判断可行性
-    if (able){
+    solver=new Solver(m,n,idx);
+    isAble=solver->isAble();
+    if (isAble){
         QMessageBox::about(this,"恭喜","恭喜你，这是一个有解的拼图！");
     }
     else{
         QMessageBox::about(this,"挺住","挺住，这个拼图没有解！");
-        //TODO：更换拼图
     }
 }
 
@@ -281,14 +332,13 @@ void MainWindow::on_start_clicked()
     //更新设置界面
     ui->seconds->setText(QString::number(seconds));
     ui->steps->setText(QString::number(steps));
-    shuffle();
     timer->start(1000);//开始计时
     ui->start->setEnabled(false);
     ui->select->setEnabled(false);
     ui->reset->setEnabled(true);
 }
 
-//重新来过
+//重新开始
 void MainWindow::on_reset_clicked()
 {
     if (originalImage==NULL) return;
@@ -299,8 +349,11 @@ void MainWindow::on_reset_clicked()
     if (timer->isActive()){
         timer->stop();
     }
-    grids[m*n-1]->setPixmap(QPixmap(":/images/blank.jpg"));
-    shuffle();
+    //将idx的状态恢复为initidx并更新ui
+    for (int i=0;i<m;i++)
+        for (int j=0;j<n;j++)
+            idx[i][j]=initidx[i][j];
+    moveImage();
     timer->start(1000);
 }
 
@@ -313,10 +366,28 @@ void MainWindow::on_exit_clicked()
 //显示从当前状态到目标的移动路径
 void MainWindow::on_answer_clicked()
 {
-    //每隔1s显示一帧解
-    retId=0;
-    retSteps=ret.size();
-    displayTimer->start(1000);
+    if (isAble){
+        if (!retPath.empty()) retPath.clear();
+        //清空计时器和步数
+        steps=0;
+        seconds=0;
+
+        timer->stop();
+        //求解正确路径
+        retPath=solver->solve();
+        if (retPath.empty()){
+            QMessageBox::warning(this,"警告","这个拼图没有解哦！");
+            return;
+        }
+        //每隔1s显示一帧解
+        retId=0;
+        retSteps=retPath.size();
+        displayTimer->start(1000);
+    }
+    else{
+       QMessageBox::warning(this,"警告","这个拼图没有解！");
+    }
+
 }
 
 //显示解路径的下一帧
@@ -325,7 +396,12 @@ void MainWindow::displayRet(){
         displayTimer->stop();
         return;
     }
-   idx=ret[retId];
+   idx=retPath[retId];
    moveImage();
    retId++;
+   //显示步数和时间
+   seconds++;
+   steps++;
+   ui->seconds->setText(QString::number(seconds));
+   ui->steps->setText(QString::number(steps));
 }

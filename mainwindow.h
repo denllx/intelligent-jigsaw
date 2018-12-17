@@ -5,8 +5,8 @@
 #include <QTimer>
 #include <QString>
 #include <QLabel>
-
-#include "logic.h"
+#include <vector>
+#include "solver.h"
 
 namespace Ui {
 class MainWindow;
@@ -53,11 +53,13 @@ private:
     int steps;//记录步数
     int seconds;//记录用时
     int** idx;//idx[i][j]表示第i行第j列的小图的编号
-    vector<int**> ret;//解的路径
+    int** initidx;//存储idx在游戏开始前的状态，供重新开始用
+    vector<int**> retPath;//解的路径
+    bool isAble=false;//是否有解
     int retSteps;//解的步数
     int retId;//当前播放解的第几步
     QTimer* timer,*displayTimer;//全局时钟；仅用于显示解的时钟
-
+    Solver* solver;//求解正确路径
 };
 
 #endif // MAINWINDOW_H
