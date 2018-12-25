@@ -1,5 +1,8 @@
 <RCC>
     <qresource prefix="/images">
         <file>blank.jpg</file>
+        <file>images/welcome.jpg</file>
+        <file>images/setlevel.jpg</file>
+        <file>images/mainbg.jpg</file>
     </qresource>
 </RCC>

@@ -1,11 +1,15 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "utils.h"
+#include "scene.h"
+#include "savepic.h"
 #include <QFileDialog>
 #include <QString>
 #include <QKeyEvent>
 #include <QDebug>
 #include <QMessageBox>
+#include <QPainter>
+#include <QTextCodec>
 
 const int GRIDSWIDTH=540;
 const int GRIDSHEIGHT=540;//格子的总宽高
@@ -19,9 +23,14 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
     this->setFixedSize(850,700);
 
-    //TODO输入m,n
-    m=4;
-    n=4;
+    scene=new WelcomeScene(this);
+    scene->setGeometry(0,0,this->width(),this->height());
+    connect(scene,SIGNAL(sendRowCol(int,int)),this,SLOT(getRowCol(int,int)));
+    scene->show();
+}
+
+void MainWindow::init(){
+    scene->deleteLater();
     gridwidth=GRIDSWIDTH/n;
     gridheight=GRIDSHEIGHT/m;
 
@@ -47,14 +56,12 @@ MainWindow::MainWindow(QWidget *parent) :
         grids[i]->setFrameShape(QFrame::Box);//添加分割线
         grids[i]->setPixmap((QPixmap(":/images/blank.jpg")));//添加空白背景
         idx[i/n][i%n]=i;
+        grids[i]->show();
     }
-    qDebug()<<"初始化："<<"\n";
     for (int i=0;i<m;i++){
         int* tmp=idx[i];
         QString s=QString("%1%2%3%4").arg(tmp[0]).arg(tmp[1]).arg(tmp[2]).arg(tmp[3]);
-        qDebug()<<s;
     }
-    qDebug()<<"\n";
     r=m-1;
     c=n-1;
     idx[r][c]=-1;//空白空格，以示区别
@@ -72,8 +79,69 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->steps->setText(QString::number(steps));
     ui->reset->setEnabled(false);
 
+    //初始化菜单栏
+    ui->actionsave_game->setEnabled(false);
+
     //初始化求解器
     solver=nullptr;
+}
+
+//设置难度
+void MainWindow::getRowCol(int row,int col){
+    m=row;
+    n=col;
+    init();
+}
+
+//保存图片
+void MainWindow::savePicture(){
+    savedialog=new savepic(this);
+    savedialog->setGeometry(300,200,savedialog->width(),savedialog->height());
+    savedialog->show();
+    connect(savedialog,SIGNAL(savePicture(QString)),this,SLOT(getfilename(QString)));
+}
+
+//将图片存储为相应文件名
+void MainWindow::getfilename(QString filename){
+    //判断文件名是否合法
+    qDebug()<<"get filename:"<<filename;
+    savedialog->deleteLater();
+    QImage resultimage=QImage(GRIDSWIDTH,GRIDSHEIGHT,QImage::Format_RGB32);
+    qDebug()<<"result image constructed";
+    QPainter* painter=new QPainter(&resultimage);
+    qDebug()<<"painter constructed";
+    int gridwidth=GRIDSWIDTH/n;//一个格子的宽高
+    int gridheight=GRIDSHEIGHT/m;
+    for (int i=0;i<m*n;i++){//第i张小图
+        int r=i/n;//在第几行
+        int c=i%n;//在第几列
+        int startx=gridwidth*c;
+        int starty=gridheight*r;
+        int index=idx[r][c];
+        if (index==-1){
+            painter->setPen(Qt::white);
+            painter->setBrush(Qt::white);
+            painter->drawRect(startx,starty,gridwidth,gridheight);
+        }
+        else painter->drawImage(startx,starty,images[index]);
+    }
+    QString outfname=qApp->applicationDirPath();
+    outfname+="\\savedimages\\";
+    outfname+=filename;
+    outfname+=".bmp";
+    bool ret=resultimage.save(outfname);
+    qDebug()<<outfname;
+    qDebug()<<ret;
+    QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
+    if (ret){
+        QMessageBox::about(this,QString::fromLocal8Bit(""),
+                           QString::fromLocal8Bit("保存成功!"));
+    }
+    else{
+        QMessageBox::warning(this,QString::fromLocal8Bit("失败"),
+                             QString::fromLocal8Bit("保存失败！"));
+    }
+
 }
 
 //将大图分为小图，按照顺序放进格子，最后一个为空白
@@ -195,7 +263,7 @@ void MainWindow::moveImage(){
             c=i%n;//更新空白格所在的位置
         }
         grids[index]->move(IMAGEX+gridwidth*(i%n),
-                           IMAGEY+gridheight*(i/n));
+                           IMAGEY+gridheight*(i/n));//更改qlabel的位置
     }
 }
 
@@ -222,6 +290,7 @@ void MainWindow::on_select_clicked()
     ui->goal->setPixmap(QPixmap::fromImage(goalImage));
     splitImage();
     shuffle();//打乱图片
+    connect(ui->actionsave_picture,SIGNAL(triggered(bool)),this,SLOT(savePicture()));
 }
 
 //用户点击WASD分别让空格向上、向左、向下、向右移动
@@ -314,11 +383,11 @@ MainWindow::~MainWindow()
 {
     delete ui;
     //因为originalImage,images,idx和本window都没有父子关系，所以都需要手动释放
-    if (originalImage) delete originalImage;
-    delete images;
-    for (int i=0;i<m;i++) delete idx[i];
-    delete idx;
-    delete grids;
+    //if (originalImage) delete originalImage;
+    //delete images;
+    //for (int i=0;i<m;i++) delete idx[i];
+    //delete idx;
+    //delete grids;
 }
 
 //开始游戏

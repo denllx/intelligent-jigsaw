@@ -1,64 +1,13 @@
-logic中matrix的内存释放
+保存图片
 
-看答案异常
+存档（永久性）
 
-初始化start,end
+读档
 
-难：
-0 3 10 7
-9 2 1 8
-5 -1 4 6
-
-简单：
-4 0 2 3
-8 5 -1 7
-9 1 6 10
-
-设置难度M,N
-
-更换M,N后释放idx和initidx的空间
-
-将起点放入open表
-f(open)=f(start)
-do{
-	将open表进行排序，使得f最小的n节点在第一个
-	if f是目标节点：胜利
-	for n的每个儿子X：
-		计算f(X)
-		if x 在open表中：
-			if f(x)小于f(open):
-				x.parent=n
-				f(open)=f(x)
-			否则：没有将f(x)加入open表的必要
-		if x 在close表中：
-			if f(x)小于f(close):
-				x.parent=n
-				将X放入OPEN
-				f(close)=f(x)
-		都不在：
-			x.parent=n
-			将x插入open
-	将n插入close
-	
-}while(open表不空)
-
-将起点放入open表
-while(1)
-	open表空：失败，退出
-	选出open表中f最小的点n，放入close表中
-	节点n是目标节点：成功，退出
-	对每个n的儿子son：
-		son在close中：抛弃
-		son在open表中：更新g,f
-		都不在：按照f大小插入open表
+读图
 
 
-如果当前状态是不能达到终点的，抛弃
 
--1023-3368601915789610
--1023-3368601915789610
-
-	
 
 
 

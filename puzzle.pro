@@ -30,7 +30,11 @@ SOURCES += \
     node.cpp \
     open.cpp \
     close.cpp \
-    solver.cpp
+    solver.cpp \
+    welcome.cpp \
+    setlevel.cpp \
+    scene.cpp \
+    savepic.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -38,10 +42,17 @@ HEADERS += \
     node.h \
     open.h \
     close.h \
-    solver.h
+    solver.h \
+    welcome.h \
+    setlevel.h \
+    scene.h \
+    savepic.h
 
 FORMS += \
-        mainwindow.ui
+        mainwindow.ui \
+    welcome.ui \
+    setlevel.ui \
+    savepic.ui
 
 RESOURCES += \
     resource.qrc

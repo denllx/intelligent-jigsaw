@@ -7,6 +7,8 @@
 #include <QLabel>
 #include <vector>
 #include "solver.h"
+#include "scene.h"
+#include "savepic.h"
 
 namespace Ui {
 class MainWindow;
@@ -20,6 +22,7 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
+    void init();//初始化拼图界面
     void keyPressEvent(QKeyEvent* event);
     void splitImage();//切割图片
     void shuffle();//打乱图片们
@@ -41,6 +44,12 @@ private slots:
 
     void on_answer_clicked();
 
+    void getRowCol(int,int);//获取来自scene的难度
+
+    void savePicture();//保存图片
+
+    void getfilename(QString filename);//获取保存图片的文件名并保存文件
+
 private:
     Ui::MainWindow *ui;
     QString filename;//图片文件名
@@ -60,6 +69,10 @@ private:
     int retId;//当前播放解的第几步
     QTimer* timer,*displayTimer;//全局时钟；仅用于显示解的时钟
     Solver* solver;//求解正确路径
+
+    Scene* scene;//场景
+    savepic* savedialog;//保存图片的对话框，用户需要输入文件名
+
 };
 
 #endif // MAINWINDOW_H
