@@ -4,11 +4,17 @@
 #include <QMainWindow>
 #include <QTimer>
 #include <QString>
+#include <QJsonObject>
 #include <QLabel>
+#include <QThread>
 #include <vector>
 #include "solver.h"
 #include "scene.h"
 #include "savepic.h"
+#include "saveprogress.h"
+#include "loadprogress.h"
+
+class MusicPlayer;
 
 namespace Ui {
 class MainWindow;
@@ -23,6 +29,7 @@ public:
     ~MainWindow();
 
     void init();//初始化拼图界面
+    void resume();//读档后继续
     void keyPressEvent(QKeyEvent* event);
     void splitImage();//切割图片
     void shuffle();//打乱图片们
@@ -50,6 +57,16 @@ private slots:
 
     void getfilename(QString filename);//获取保存图片的文件名并保存文件
 
+    void savegame();//存档
+
+    void loadgame();//读档
+
+    void getprogressname(QString filename);//获取保存进度的名称并保存进度
+
+    void getloadgame(QString filename);//获取读取进度的名称并加载进度
+
+    void startBgm();//开始播放背景音乐
+
 private:
     Ui::MainWindow *ui;
     QString filename;//图片文件名
@@ -69,9 +86,17 @@ private:
     int retId;//当前播放解的第几步
     QTimer* timer,*displayTimer;//全局时钟；仅用于显示解的时钟
     Solver* solver;//求解正确路径
+    bool isRunning;//游戏是否开始
 
     Scene* scene;//场景
     savepic* savedialog;//保存图片的对话框，用户需要输入文件名
+    saveprogress* progressdialog;//进度保存的对话框，用户需要输入进度名
+    loadprogress* loaddialog;//读档对话框，需要用户输入进度名
+    MusicPlayer* music;//音乐播放器
+    QThread musicThread;//音乐播放线程
+
+    void write(QJsonObject& json);
+    void read(const QJsonObject& json);
 
 };
 

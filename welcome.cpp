@@ -12,3 +12,8 @@ welcome::~welcome()
 {
     delete ui;
 }
+
+void welcome::on_loadgame_clicked()
+{
+
+}

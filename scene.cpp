@@ -1,8 +1,11 @@
 #include <QMovie>
 #include <QDebug>
+#include <QMessageBox>
+#include <QTextCodec>
 #include "scene.h"
 #include "mainwindow.h"
 #include "ui_welcome.h"
+#include "utils.h"
 
 Scene::Scene(QWidget *parent) : QLabel(parent)
 {
@@ -20,6 +23,24 @@ WelcomeScene::WelcomeScene(QWidget *parent):
     bg->start();
     this->setMovie(bg);
     this->show();
+
+    connect(ui->loadgame,&QPushButton::clicked,[=](){
+        loaddialog=new loadprogress(this);
+        loaddialog->setGeometry(300,200,loaddialog->width(),loaddialog->height());
+        connect(loaddialog,&loadprogress::donothing,[=](){
+            qDebug()<<"loaddialog:donothing";
+            loaddialog->deleteLater();
+        });
+        connect(loaddialog,SIGNAL(getfilename(QString)),this,SLOT(getloadname(QString)));
+        loaddialog->show();
+    });
+}
+
+//获取加载进度名
+//如果成功，将进度名传给父亲
+void WelcomeScene::getloadname(QString filename){
+    loaddialog->deleteLater();
+    emit sendloadname(filename);
 }
 
 WelcomeScene::~WelcomeScene(){
@@ -47,3 +68,5 @@ void WelcomeScene::getRowCol(int row,int col){
     qDebug()<<"welcome scene:"<<row<<" "<<col;
     emit sendRowCol(row,col);
 }
+
+

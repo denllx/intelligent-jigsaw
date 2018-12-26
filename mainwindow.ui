@@ -196,8 +196,8 @@
      <string>开始</string>
     </property>
     <addaction name="separator"/>
-    <addaction name="actionload_ganme"/>
-    <addaction name="actionsave_game_2"/>
+    <addaction name="load_game"/>
+    <addaction name="save_game"/>
    </widget>
    <widget class="QMenu" name="menu_2">
     <property name="title">
@@ -237,12 +237,12 @@
     <string>set level</string>
    </property>
   </action>
-  <action name="actionload_ganme">
+  <action name="load_game">
    <property name="text">
     <string>load game</string>
    </property>
   </action>
-  <action name="actionsave_game_2">
+  <action name="save_game">
    <property name="text">
     <string>save game</string>
    </property>

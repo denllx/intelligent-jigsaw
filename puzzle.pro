@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui
+QT       += core gui multimedia
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -34,7 +34,9 @@ SOURCES += \
     welcome.cpp \
     setlevel.cpp \
     scene.cpp \
-    savepic.cpp
+    savepic.cpp \
+    saveprogress.cpp \
+    loadprogress.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -46,13 +48,20 @@ HEADERS += \
     welcome.h \
     setlevel.h \
     scene.h \
-    savepic.h
+    savepic.h \
+    saveprogress.h \
+    loadprogress.h \
+    musicplayer.h
 
 FORMS += \
         mainwindow.ui \
     welcome.ui \
     setlevel.ui \
-    savepic.ui
+    savepic.ui \
+    saveprogress.ui \
+    loadprogress.ui
 
 RESOURCES += \
     resource.qrc
+
+CONFIG+= resources_big

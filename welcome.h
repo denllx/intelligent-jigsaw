@@ -15,6 +15,9 @@ public:
     explicit welcome(QWidget *parent = 0);
     ~welcome();
 
+private slots:
+    void on_loadgame_clicked();
+
 private:
     Ui::welcome *ui;
 };

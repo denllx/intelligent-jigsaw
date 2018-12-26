@@ -1,4 +1,5 @@
 #include <QtMath>
+#include <QFileInfoList>
 #include "utils.h"
 
 //对长度为len，值为-1的数组a随机填入[0,1,....len-2]
@@ -31,4 +32,15 @@ bool same(int** a, int** b, int m, int n) {
         }
     }
     return true;
+}
+
+QStringList getdirnames(const QString &path, const QStringList &filters){
+    QDir dir(path);
+    QFileInfoList list=dir.entryInfoList(filters,QDir::Files|QDir::NoSymLinks);
+    QStringList ret;
+    for (int i=0,len=list.length();i<len;i++){
+        QFileInfo fileinfo=list.at(i);
+        ret.append(fileinfo.baseName());
+    }
+    return ret;
 }

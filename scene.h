@@ -5,7 +5,7 @@
 #include <QMovie>
 #include <QLabel>
 #include "setlevel.h"
-
+#include "loadprogress.h"
 class MainWindow;
 
 namespace Ui{
@@ -35,14 +35,17 @@ public:
 private slots:
     void on_btnSetlevel_clicked();
     void getRowCol(int,int);//获取来自setlevel的行列数
+    void getloadname(QString filename);//获取加载的进度名
 
 signals:
     void sendRowCol(int,int);//向父亲发送行列信息
+    void sendloadname(QString filename);//发送进度名
 
 private:
     Ui::welcome* ui;
     QMovie* bg;//背景图片
     setlevel* widgetSetlevel;//选择难度
+    loadprogress* loaddialog;//存档进度
 };
 
 #endif // SCENE_H

@@ -5,4 +5,7 @@
         <file>images/setlevel.jpg</file>
         <file>images/mainbg.jpg</file>
     </qresource>
+    <qresource prefix="/music">
+        <file>music/moon_light.mp3</file>
+    </qresource>
 </RCC>

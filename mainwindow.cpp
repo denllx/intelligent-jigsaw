@@ -3,13 +3,22 @@
 #include "utils.h"
 #include "scene.h"
 #include "savepic.h"
+#include "saveprogress.h"
+#include "loadprogress.h"
+#include "musicplayer.h"
 #include <QFileDialog>
 #include <QString>
+#include <QSound>
+#include <QMediaPlayer>
 #include <QKeyEvent>
 #include <QDebug>
 #include <QMessageBox>
 #include <QPainter>
 #include <QTextCodec>
+#include <QFile>
+#include <QJsonObject>
+#include <QJsonDocument>
+#include <QJsonArray>
 
 const int GRIDSWIDTH=540;
 const int GRIDSHEIGHT=540;//格子的总宽高
@@ -22,15 +31,23 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
     this->setFixedSize(850,700);
-
+    //QTimer::singleShot(10,this,SLOT(startBgm()));
+    startBgm();
     scene=new WelcomeScene(this);
     scene->setGeometry(0,0,this->width(),this->height());
     connect(scene,SIGNAL(sendRowCol(int,int)),this,SLOT(getRowCol(int,int)));
+    connect(scene,SIGNAL(sendloadname(QString)),this,SLOT(getloadgame(QString)));
     scene->show();
 }
 
+void MainWindow::startBgm(){
+    music=new MusicPlayer();
+    music->moveToThread(&musicThread);
+    music->bgm();
+    musicThread.start();
+}
+
 void MainWindow::init(){
-    scene->deleteLater();
     gridwidth=GRIDSWIDTH/n;
     gridheight=GRIDSHEIGHT/m;
 
@@ -58,10 +75,6 @@ void MainWindow::init(){
         idx[i/n][i%n]=i;
         grids[i]->show();
     }
-    for (int i=0;i<m;i++){
-        int* tmp=idx[i];
-        QString s=QString("%1%2%3%4").arg(tmp[0]).arg(tmp[1]).arg(tmp[2]).arg(tmp[3]);
-    }
     r=m-1;
     c=n-1;
     idx[r][c]=-1;//空白空格，以示区别
@@ -71,6 +84,7 @@ void MainWindow::init(){
     seconds=0;
     timer=new QTimer(this);
     displayTimer=new QTimer(this);
+    isRunning=false;
     connect(timer,SIGNAL(timeout()),this,SLOT(tick()));//复位计时
     connect(displayTimer,SIGNAL(timeout()),this,SLOT(displayRet()));//显示解
 
@@ -80,7 +94,58 @@ void MainWindow::init(){
     ui->reset->setEnabled(false);
 
     //初始化菜单栏
-    ui->actionsave_game->setEnabled(false);
+    ui->actionsave_picture->setEnabled(false);
+    ui->save_game->setEnabled(false);
+
+    //初始化求解器
+    solver=nullptr;
+}
+
+//读档后继续
+void MainWindow::resume(){
+    gridwidth=GRIDSWIDTH/n;
+    gridheight=GRIDSHEIGHT/m;
+
+    //初始化大图
+    originalImage=new QImage(filename);
+
+    //初始化格子
+    grids=new QLabel*[m*n];
+
+    //初始化小图
+    images=new QImage[m*n];
+
+    //绘制格子，添加分割线
+    for (int i=0;i<m*n;i++){
+        grids[i]=new QLabel(this);
+        grids[i]->setGeometry(0,0,gridwidth,gridheight);
+        grids[i]->setFrameShape(QFrame::Box);//添加分割线
+        grids[i]->show();
+    }
+
+    //为每个格子填充小图
+     QImage tmp=originalImage->scaled(gridwidth*n,gridheight*m);
+    for (int i=0;i<m*n;i++){
+        images[i]=tmp.copy(gridwidth*(i%n),gridheight*(i/n),gridwidth,gridheight);
+        grids[i]->setPixmap(QPixmap::fromImage(images[i]));
+    }
+    moveImage();
+
+    //初始化数据
+    timer=new QTimer(this);
+    displayTimer=new QTimer(this);
+    isRunning=false;
+    connect(timer,SIGNAL(timeout()),this,SLOT(tick()));//复位计时
+    connect(displayTimer,SIGNAL(timeout()),this,SLOT(displayRet()));//显示解
+
+    //设置界面
+    ui->seconds->setText(QString::number(seconds));
+    ui->steps->setText(QString::number(steps));
+    ui->reset->setEnabled(false);
+
+    //初始化菜单栏
+    ui->actionsave_picture->setEnabled(false);
+    ui->save_game->setEnabled(false);
 
     //初始化求解器
     solver=nullptr;
@@ -90,48 +155,70 @@ void MainWindow::init(){
 void MainWindow::getRowCol(int row,int col){
     m=row;
     n=col;
+    scene->deleteLater();
     init();
 }
 
 //保存图片
 void MainWindow::savePicture(){
+    if (isRunning) timer->stop();
     savedialog=new savepic(this);
     savedialog->setGeometry(300,200,savedialog->width(),savedialog->height());
     savedialog->show();
     connect(savedialog,SIGNAL(savePicture(QString)),this,SLOT(getfilename(QString)));
+    connect(savedialog,&savepic::donothing,this,[=](){
+       savedialog->deleteLater();
+       if (isRunning){
+          timer->start();
+       }
+    });
 }
 
 //将图片存储为相应文件名
 void MainWindow::getfilename(QString filename){
-    //判断文件名是否合法
-    qDebug()<<"get filename:"<<filename;
     savedialog->deleteLater();
     QImage resultimage=QImage(GRIDSWIDTH,GRIDSHEIGHT,QImage::Format_RGB32);
-    qDebug()<<"result image constructed";
     QPainter* painter=new QPainter(&resultimage);
-    qDebug()<<"painter constructed";
     int gridwidth=GRIDSWIDTH/n;//一个格子的宽高
     int gridheight=GRIDSHEIGHT/m;
+    painter->setPen(Qt::black);
     for (int i=0;i<m*n;i++){//第i张小图
         int r=i/n;//在第几行
         int c=i%n;//在第几列
         int startx=gridwidth*c;
         int starty=gridheight*r;
         int index=idx[r][c];
+        painter->drawRect(startx,starty,gridwidth,gridheight);//画黑框
         if (index==-1){
-            painter->setPen(Qt::white);
             painter->setBrush(Qt::white);
-            painter->drawRect(startx,starty,gridwidth,gridheight);
+            painter->drawRect(startx,starty,gridwidth,gridheight);//画白色矩形
         }
-        else painter->drawImage(startx,starty,images[index]);
+        else painter->drawImage(startx,starty,images[index]);//画小图
     }
-    QString outfname=qApp->applicationDirPath();
-    outfname+="\\savedimages\\";
-    outfname+=filename;
-    outfname+=".bmp";
+    QString dir=qApp->applicationDirPath();
+    dir+="\\savedimages\\";
+    QString basename=filename;
+    QString outfname=dir+basename+".bmp";
+    QStringList filters;
+    filters<<"*.bmp";
+    QStringList alreadyexist=getdirnames(dir,filters);
+    QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
+    for (auto name:alreadyexist){
+        if (name==basename){
+            QMessageBox::StandardButton ret=QMessageBox::information(this,
+                                     QString::fromLocal8Bit("提醒"),
+                                     QString::fromLocal8Bit("文件已经存在，是否替换？"),
+                                     QMessageBox::Yes|QMessageBox::Cancel);
+            if (ret==QMessageBox::Yes){
+                break;
+            }
+            else{
+                if (isRunning) timer->start();
+                return;
+            }
+        }
+    }
     bool ret=resultimage.save(outfname);
-    qDebug()<<outfname;
-    qDebug()<<ret;
     QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
     if (ret){
         QMessageBox::about(this,QString::fromLocal8Bit(""),
@@ -141,7 +228,7 @@ void MainWindow::getfilename(QString filename){
         QMessageBox::warning(this,QString::fromLocal8Bit("失败"),
                              QString::fromLocal8Bit("保存失败！"));
     }
-
+    if (isRunning) timer->start();
 }
 
 //将大图分为小图，按照顺序放进格子，最后一个为空白
@@ -156,13 +243,6 @@ void MainWindow::splitImage(){
     r=m-1;
     c=n-1;
     idx[r][c]=-1;
-    qDebug()<<"after splitimage："<<"\n";
-    for (int i=0;i<m;i++){
-        int* tmp=idx[i];
-        QString s=QString("%1%2%3%4").arg(tmp[0]).arg(tmp[1]).arg(tmp[2]).arg(tmp[3]);
-        qDebug()<<s;
-    }
-    qDebug()<<"\n";
     QPixmap blank(":/images/blank.jpg");
     grids[m*n-1]->setPixmap(blank);
 }
@@ -290,6 +370,9 @@ void MainWindow::on_select_clicked()
     ui->goal->setPixmap(QPixmap::fromImage(goalImage));
     splitImage();
     shuffle();//打乱图片
+
+    //能够保存图片
+    ui->actionsave_picture->setEnabled(true);
     connect(ui->actionsave_picture,SIGNAL(triggered(bool)),this,SLOT(savePicture()));
 }
 
@@ -366,12 +449,12 @@ void MainWindow::judge(){
     if (finish){
         grids[m*n-1]->setPixmap(QPixmap::fromImage(images[m*n-1]));//将图复原
         timer->stop();
+        isRunning=false;
         ui->select->setEnabled(true);
         ui->start->setEnabled(true);
         ui->reset->setEnabled(false);
         QMessageBox::about(this,"成功","恭喜你成功复原！");
     }
-
 }
 
 void MainWindow::tick(){
@@ -381,6 +464,8 @@ void MainWindow::tick(){
 
 MainWindow::~MainWindow()
 {
+    musicThread.quit();
+    musicThread.wait();
     delete ui;
     //因为originalImage,images,idx和本window都没有父子关系，所以都需要手动释放
     //if (originalImage) delete originalImage;
@@ -395,16 +480,17 @@ void MainWindow::on_start_clicked()
 {
     if (originalImage==NULL) return;//无法开始
     if (timer->isActive()) timer->stop();
-    //初始化数据
-    seconds=0;
-    steps=0;
     //更新设置界面
     ui->seconds->setText(QString::number(seconds));
     ui->steps->setText(QString::number(steps));
     timer->start(1000);//开始计时
+    isRunning=true;
     ui->start->setEnabled(false);
     ui->select->setEnabled(false);
     ui->reset->setEnabled(true);
+    //能够存档
+    ui->save_game->setEnabled(true);
+    connect(ui->save_game,SIGNAL(triggered(bool)),this,SLOT(savegame()));
 }
 
 //重新开始
@@ -440,8 +526,8 @@ void MainWindow::on_answer_clicked()
         //清空计时器和步数
         steps=0;
         seconds=0;
-
         timer->stop();
+        isRunning=false;
         //求解正确路径
         retPath=solver->solve();
         if (retPath.empty()){
@@ -473,4 +559,129 @@ void MainWindow::displayRet(){
    steps++;
    ui->seconds->setText(QString::number(seconds));
    ui->steps->setText(QString::number(steps));
+}
+
+//获取读档文件名后读档
+void MainWindow::getloadgame(QString filename){
+    qDebug()<<"mainwindow::getloadgame"<<filename;
+    QString dir=qApp->applicationDirPath();
+    dir+="\\progress\\";
+    QString absname=dir+filename+".json";
+    scene->deleteLater();
+    QFile loadFile(absname);
+    if (!loadFile.open((QIODevice::ReadOnly))){
+        qWarning("couldn't open file in mainwindow::loadgame!");
+    }
+    QByteArray saveData=loadFile.readAll();
+    QJsonDocument loadDoc(QJsonDocument::fromJson(saveData));
+    read(loadDoc.object());
+    loadFile.close();
+    resume();
+}
+
+//获取存档文件名后存档
+void MainWindow::getprogressname(QString name){
+    progressdialog->deleteLater();
+    QString dirname=qApp->applicationDirPath();
+    dirname+="\\progress\\";
+    QString basename=name+".json";
+    QStringList filters;
+    filters<<"*.json";
+    QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
+    QStringList alreadyexist=getdirnames(dirname,filters);
+    for (auto existname:alreadyexist){
+        qDebug()<<"alreadyexist:"<<name;
+        if (name==existname){
+            QMessageBox::StandardButton rb=QMessageBox::information(this,
+                                 QString::fromLocal8Bit("提示"),
+                                 QString::fromLocal8Bit("该文件已经存在，是否替换?"),
+                                     QMessageBox::Yes,
+                                     QMessageBox::No);
+            if (rb==QMessageBox::Yes){
+                break;
+            }
+            else {
+                timer->start();
+                return;
+            }
+        }
+    }
+    QString filename=dirname+basename;
+    QFile saveFile(filename);
+    if (!saveFile.open(QIODevice::WriteOnly)){
+        qWarning("couldn't open file in mainwindow::savegame");
+        return;
+    }
+    QJsonObject gameobject;
+    write(gameobject);
+    QJsonDocument savedoc(gameobject);
+    saveFile.write(savedoc.toJson());
+    saveFile.close();
+    qDebug()<<"savegame success!";
+    timer->start();
+}
+
+//读档
+void MainWindow::loadgame(){
+    if (isRunning) timer->stop();
+}
+
+void MainWindow::savegame(){
+    timer->stop();
+    progressdialog=new saveprogress(this);
+    progressdialog->setGeometry(300,200,progressdialog->width(),progressdialog->height());
+    progressdialog->show();
+    connect(progressdialog,SIGNAL(progressname(QString)),this,SLOT(getprogressname(QString)));
+    connect(progressdialog,&saveprogress::donothing,[=](){
+       progressdialog->deleteLater();
+       timer->start();
+    });
+}
+
+void MainWindow::read(const QJsonObject& json){
+    qDebug()<<"mainwindow::read";
+    QJsonObject objectGameData=json["gameData"].toObject();
+    m=objectGameData["m"].toInt();
+    n=objectGameData["n"].toInt();
+    r=objectGameData["r"].toInt();
+    c=objectGameData["c"].toInt();
+    steps=objectGameData["steps"].toInt();
+    seconds=objectGameData["seconds"].toInt();
+    isAble=objectGameData["isAble"].toBool();
+    filename=objectGameData["filename"].toString();
+    QJsonArray arrayidx=objectGameData["currentidx"].toArray();
+    QJsonArray arrayinitidx=objectGameData["initidx"].toArray();
+    //初始化编号
+    idx=new int*[m];
+    initidx=new int*[m];
+    for (int i=0;i<m;i++) idx[i]=new int[n],initidx[i]=new int[n];
+    for (int i=0,len=arrayidx.size();i<len;i++){
+        idx[i/n][i%n]=arrayidx[i].toInt();
+        qDebug()<<"loading idx:"<<idx[i/n][i%n];
+        initidx[i/n][i%n]=arrayinitidx[i].toInt();
+        qDebug()<<"loading init idx:"<<initidx[i/n][i%n];
+    }
+}
+
+void MainWindow::write(QJsonObject& json){
+    QJsonObject gamedataObject;
+    gamedataObject["m"]=m;
+    gamedataObject["n"]=n;
+    gamedataObject["r"]=r;
+    gamedataObject["c"]=c;
+    gamedataObject["steps"]=steps;
+    gamedataObject["seconds"]=seconds;
+    gamedataObject["isAble"]=isAble;
+    gamedataObject["filename"]=filename;
+    QJsonArray arrayidx;
+    for (int i=0;i<m*n;i++){
+        arrayidx.append(idx[i/n][i%n]);
+    }
+    gamedataObject["currentidx"]=arrayidx;
+    QJsonArray arrayinitidx;
+    for (int i=0;i<m*n;i++){
+        arrayinitidx.append(initidx[i/n][i%n]);
+    }
+    gamedataObject["initidx"]=arrayinitidx;
+    json["gameData"]=gamedataObject;
 }

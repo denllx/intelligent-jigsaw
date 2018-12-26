@@ -19,6 +19,7 @@ public:
 
 signals:
     void savePicture(const QString& filename);
+    void donothing();
 
 private:
     Ui::savepic *ui;
