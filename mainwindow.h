@@ -13,6 +13,7 @@
 #include "savepic.h"
 #include "saveprogress.h"
 #include "loadprogress.h"
+#include "bmpreader.h"
 
 class MusicPlayer;
 
@@ -94,6 +95,9 @@ private:
     loadprogress* loaddialog;//读档对话框，需要用户输入进度名
     MusicPlayer* music;//音乐播放器
     QThread musicThread;//音乐播放线程
+
+    int pixelwidth,pixelheight;//一张大图每列/行像素数
+    IMAGEDATA* originalData,*invertedData;//原始像素矩阵，上下颠倒后的像素矩阵
 
     void write(QJsonObject& json);
     void read(const QJsonObject& json);

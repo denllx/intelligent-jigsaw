@@ -51,8 +51,10 @@ void MainWindow::init(){
     gridwidth=GRIDSWIDTH/n;
     gridheight=GRIDSHEIGHT/m;
 
-    //初始化大图
+    //初始化大图和像素矩阵
     originalImage=NULL;
+    originalData=NULL;
+    invertedData=NULL;
 
     //初始化格子
     grids=new QLabel*[m*n];
@@ -71,7 +73,7 @@ void MainWindow::init(){
         grids[i]->setGeometry(0,0,gridwidth,gridheight);
         grids[i]->move(IMAGEX+gridwidth*(i%n),IMAGEY+gridheight*(i/n));
         grids[i]->setFrameShape(QFrame::Box);//添加分割线
-        grids[i]->setPixmap((QPixmap(":/images/blank.jpg")));//添加空白背景
+        grids[i]->setPixmap((QPixmap(":/images/blank.bmp")));//添加空白背景
         idx[i/n][i%n]=i;
         grids[i]->show();
     }
@@ -107,7 +109,20 @@ void MainWindow::resume(){
     gridheight=GRIDSHEIGHT/m;
 
     //初始化大图
-    originalImage=new QImage(filename);
+    if (originalData) delete[] originalData;
+    originalData=getpixelarray(filename.toLocal8Bit(),pixelwidth,pixelheight);//获取像素矩阵
+    if (invertedData) delete[] invertedData;
+    invertedData= revertImagedata(originalData,pixelwidth,pixelheight);//上下颠倒像素矩阵
+    //每行有多少个字节=每行有多少个像素*每个像素有多少个字节
+    if (originalImage) delete originalImage;
+    originalImage=new QImage((const uchar*)invertedData,
+                 pixelwidth,
+                 pixelheight,
+                 pixelwidth * 3,
+                 QImage::Format_RGB888);
+    qDebug()<<"load picture success";
+
+    //originalImage=new QImage(filename);
 
     //初始化格子
     grids=new QLabel*[m*n];
@@ -218,7 +233,9 @@ void MainWindow::getfilename(QString filename){
             }
         }
     }
-    bool ret=resultimage.save(outfname);
+    //bool ret=resultimage.save(outfname);
+    //将bmp矩阵保存为文件  
+    bool ret=savepixelarray(outfname.toLocal8Bit(),originalData,pixelwidth,pixelheight);
     QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
     if (ret){
         QMessageBox::about(this,QString::fromLocal8Bit(""),
@@ -243,7 +260,7 @@ void MainWindow::splitImage(){
     r=m-1;
     c=n-1;
     idx[r][c]=-1;
-    QPixmap blank(":/images/blank.jpg");
+    QPixmap blank(":/images/blank.bmp");
     grids[m*n-1]->setPixmap(blank);
 }
 
@@ -354,7 +371,7 @@ void MainWindow::on_select_clicked()
     QString selectedName=QFileDialog::getOpenFileName(this,
                                                       tr("选择一张图片"),
                                                       "",
-                                                      "Images(*.png *.jpg)");
+                                                      "Images(*.bmp)");
     if (selectedName.isEmpty()){
         return;
     }
@@ -364,7 +381,16 @@ void MainWindow::on_select_clicked()
         delete originalImage;
         originalImage=NULL;
     }
-    originalImage=new QImage(filename);//更换大图
+    if (originalData) delete[] originalData;
+    originalData=getpixelarray(filename.toLocal8Bit(),pixelwidth,pixelheight);
+    if (invertedData) delete[] invertedData;
+    invertedData=revertImagedata(originalData,pixelwidth,pixelheight);
+    originalImage=new QImage((const uchar*)invertedData,
+                             pixelwidth,
+                             pixelheight,
+                             pixelwidth*3,
+                             QImage::Format_RGB888);
+    //originalImage=new QImage(filename);//更换大图
     //在旁边显示还原后的图像，作为提示
     QImage goalImage=originalImage->scaled(ui->goal->width(),ui->goal->height());
     ui->goal->setPixmap(QPixmap::fromImage(goalImage));
@@ -468,11 +494,19 @@ MainWindow::~MainWindow()
     musicThread.wait();
     delete ui;
     //因为originalImage,images,idx和本window都没有父子关系，所以都需要手动释放
-    //if (originalImage) delete originalImage;
-    //delete images;
-    //for (int i=0;i<m;i++) delete idx[i];
-    //delete idx;
-    //delete grids;
+    if (originalImage) delete originalImage;
+    if (images) delete images;
+    if (idx){
+        for (int i=0;i<m;i++) delete idx[i];
+        delete idx;
+    }
+    if (grids){
+        for (int i=0;i<m;i++) delete grids[i];
+        delete grids;
+    }
+    // The image does not delete the buffer at destruction.
+    if (originalData) delete[] originalData;
+    if (invertedData) delete invertedData;
 }
 
 //开始游戏

@@ -36,7 +36,8 @@ SOURCES += \
     scene.cpp \
     savepic.cpp \
     saveprogress.cpp \
-    loadprogress.cpp
+    loadprogress.cpp \
+    bmpreader.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -51,7 +52,8 @@ HEADERS += \
     savepic.h \
     saveprogress.h \
     loadprogress.h \
-    musicplayer.h
+    musicplayer.h \
+    bmpreader.h
 
 FORMS += \
         mainwindow.ui \
