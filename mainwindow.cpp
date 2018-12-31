@@ -55,6 +55,7 @@ void MainWindow::init(){
     originalImage=NULL;
     originalData=NULL;
     invertedData=NULL;
+    currentData=NULL;
 
     //初始化格子
     grids=new QLabel*[m*n];
@@ -66,6 +67,11 @@ void MainWindow::init(){
     idx=new int*[m];
     initidx=new int*[m];
     for (int i=0;i<m;i++) idx[i]=new int[n],initidx[i]=new int[n];
+    originalidx=new int*[m];
+    for (int i=0;i<m;i++) {
+        originalidx[i]=new int[n];
+        for (int j=0;j<n;j++) originalidx[i][j]=i*n+j;
+    }
 
     //绘制格子，添加分割线
     for (int i=0;i<m*n;i++){
@@ -234,8 +240,10 @@ void MainWindow::getfilename(QString filename){
         }
     }
     //bool ret=resultimage.save(outfname);
-    //将bmp矩阵保存为文件  
-    bool ret=savepixelarray(outfname.toLocal8Bit(),originalData,pixelwidth,pixelheight);
+    //将bmp矩阵保存为文件
+    if (currentData) delete[] currentData;
+    currentData=shuffleImagedata(originalData,originalidx,idx,m,n,pixelwidth,pixelheight);
+    bool ret=savepixelarray(outfname.toLocal8Bit(),currentData,pixelwidth,pixelheight);
     QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
     if (ret){
         QMessageBox::about(this,QString::fromLocal8Bit(""),
@@ -318,7 +326,7 @@ void MainWindow::shuffle(){
     qDebug()<<"after shuffle image,before move image："<<"\n";
     for (int i=0;i<m;i++){
         int* tmp=idx[i];
-        QString s=QString("%1%2%3%4").arg(tmp[0]).arg(tmp[1]).arg(tmp[2]).arg(tmp[3]);
+        QString s=QString("%1 %2 %3").arg(tmp[0]).arg(tmp[1]).arg(tmp[2]);
         qDebug()<<s;
     }
     qDebug()<<"\n";

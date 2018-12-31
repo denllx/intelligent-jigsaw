@@ -81,6 +81,7 @@ private:
     int seconds;//记录用时
     int** idx;//idx[i][j]表示第i行第j列的小图的编号
     int** initidx;//存储idx在游戏开始前的状态，供重新开始用
+    int** originalidx;//{0,1,2},{3,4,5},{6,7,8}
     vector<int**> retPath;//解的路径
     bool isAble=false;//是否有解
     int retSteps;//解的步数
@@ -97,11 +98,10 @@ private:
     QThread musicThread;//音乐播放线程
 
     int pixelwidth,pixelheight;//一张大图每列/行像素数
-    IMAGEDATA* originalData,*invertedData;//原始像素矩阵，上下颠倒后的像素矩阵
+    IMAGEDATA* originalData,*invertedData,*currentData;//原始像素矩阵，上下颠倒后的像素矩阵，当前矩阵
 
     void write(QJsonObject& json);
     void read(const QJsonObject& json);
-
 };
 
 #endif // MAINWINDOW_H

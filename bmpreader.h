@@ -64,6 +64,7 @@ bool savepixelarray(const char* filename,
                     int width,
                     int height);//将像素矩阵保存为指定文件名的bmp文件
 IMAGEDATA* revertImagedata(IMAGEDATA* imagedata,int width,int height);//将像素矩阵上下颠倒用于显示
+IMAGEDATA* shuffleImagedata(IMAGEDATA* imagedata,int** originalidx,int** idx,int m,int n,int width,int height);//将像素矩阵按照idx打乱
 
 
 #endif // BMPREADER_H

@@ -2,7 +2,7 @@
 #include <QImage>
 #include "stdlib.h"
 #include "math.h"
-#include <qDebug>
+#include <QDebug>
 
 #define PI 3.14159
 #define LENGTH_NAME_BMP 100//文件名的最大长度
@@ -136,25 +136,43 @@ IMAGEDATA* revertImagedata(IMAGEDATA* imagedata,int width,int height) {
     return newdata;
 }
 
-/*
-int main(int argc, char *argv[])
-{
-    QApplication a(argc, argv);
-    bmp_reader_gui w;
-    IMAGEDATA* imagedata = getpixelarray();
-    IMAGEDATA* newdata = revertImagedata(imagedata);
-    //每行有多少个字节=每行有多少个像素*每个像素有多少个字节
-    QImage image((const uchar*)newdata, width, height, width * 3, QImage::Format_RGB888);
-    //获取像素数据
-    const uchar* datafromqimage = image.constBits();
-    savepixelarray(imagedata);
-    QLabel* label = new QLabel(&w);
-    label->setGeometry(0,0,image.width(), image.height());
-    label->setPixmap(QPixmap::fromImage(image));
-    label->show();
-    w.setMinimumWidth(image.width());
-    w.setMinimumHeight(image.height());
-    w.show();
-    return a.exec();
-}
+/*按照idx的顺序将imagedata打乱并返回
+ *m,n：idx的行列数
+ * originalidx:{0,1,2},{3,4,5},{6,7,8}
 */
+IMAGEDATA* shuffleImagedata(IMAGEDATA *imagedata, int** originalidx,int **idx, int m,int n,int width, int height){
+    IMAGEDATA* newdata;
+    newdata=(IMAGEDATA*)malloc(width*height*sizeof(IMAGEDATA));
+    int gridwidth=width/n;//一个小图一行的像素数
+    int gridheight=height/m;
+    for (int i=0;i<height;i++){
+        for (int j=0;j<width;j++){
+            int r=i/gridheight;//第(i,j)个像素所在小图的行列数，范围[0,m)
+            int c=j/gridwidth;//范围[0,n)
+            int diffr=i-r*gridheight;//从当前像素到小图左上角像素相差的像素数
+            int diffc=j-c*gridwidth;
+            //(r,c)=(0,0)
+            int imageid=idx[m-1-r][c];//7
+            if (imageid!=-1){
+            /*int realr=m-1-imageid/n;//0
+            int realc=imageid%n;//1
+            //int realid=originalidx[realr][realc];//1
+            int reali=realr*gridheight+diffr;//当前像素在原imagedata中的位置
+            int realj=realc*gridwidth+diffc;
+            */
+            int realid=originalidx[m-1-imageid/n][imageid%n];//1
+            int realr=realid/n;//0
+            int realc=realid%n;//1
+            int reali=realr*gridheight+diffr;
+            int realj=realc*gridwidth+diffc;
+            *(newdata+i*width+j)=*(imagedata+reali*width+realj);//当前图的(i,j)相当于原图的(reali,realrj)
+            }
+            else{
+                (newdata+i*width+j)->red=(BYTE)0xff;
+                (newdata+i*width+j)->blue=(BYTE)0xff;
+                (newdata+i*width+j)->green=(BYTE)0xff;
+            }
+        }
+    }
+    return newdata;
+}
